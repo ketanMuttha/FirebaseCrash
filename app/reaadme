@@ -1,0 +1,247 @@
+package com.faob.sample_feature.view
+
+import android.animation.Animator
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
+import android.annotation.SuppressLint
+import android.content.Context
+import android.os.Build
+import android.util.AttributeSet
+import android.util.DisplayMetrics
+import android.view.Gravity
+import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.Animation
+import android.view.animation.LinearInterpolator
+import android.widget.FrameLayout
+import androidx.annotation.DrawableRes
+import androidx.annotation.RequiresApi
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
+import com.faob.sample_feature.R
+
+class ProgressView: ConstraintLayout {
+
+    private var animators = mutableListOf<Animator>()
+
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+    constructor(context: Context) : super(context) {
+        init()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs) {
+        init()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+    constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(
+        context,
+        attrs,
+        defStyleAttr
+    ) {
+        init()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
+    constructor(
+        context: Context,
+        attrs: AttributeSet?,
+        defStyleAttr: Int,
+        defStyleRes: Int
+    ) : super(context, attrs, defStyleAttr, defStyleRes) {
+        init()
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        animators.forEach { it.cancel() }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+    private fun init() {
+        val margin = convertDpToPixel(5f, context)
+        val radius = convertDpToPixel(10f, context)
+        val iconCount = 20
+        val animationDuration = 4000L
+        val drawableRes = R.drawable.blue_circle
+
+        this.clipChildren = false
+        this.clipToPadding = false
+
+        val constraintLayout = createConstraintLayout(context)
+
+        animators.add(createRotateAnimator(this, animationDuration))
+
+        val circleCenterResId = ConstraintLayout.generateViewId()
+        val center = View(context).apply { id = circleCenterResId }
+
+        constraintLayout.addView(center, 0)
+
+        val iconsRes = mutableListOf<@androidx.annotation.DrawableRes Int>()
+
+        val iconScaleValues = mutableListOf<List<Float>>()
+        val zeroScaleValues = mutableListOf<List<Float>>()
+        for (i in 0 until iconCount) {
+
+            iconScaleValues.add(i, getScaleValues(i))
+            zeroScaleValues.add(i, getScaleValues_V2(i))
+
+            val idRes = ConstraintLayout.generateViewId()
+            val icon = View(context).apply {
+                id = idRes
+                setBackgroundResource(drawableRes)
+                layoutParams = LayoutParams(radius * 3, radius * 2).apply {
+                    setMargins(margin, margin, margin, margin)
+                }
+            }
+
+            constraintLayout.addView(icon, i + 1)
+            iconsRes.add(idRes)
+
+
+
+
+            val scaleAnimator = ValueAnimator.ofFloat(
+                iconScaleValues[i][0],
+                iconScaleValues[i][1]
+            ).apply {
+                duration =1000L
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.REVERSE
+                interpolator = LinearInterpolator()
+
+                addUpdateListener {
+                    icon.apply {
+                        scaleX = it.animatedValue as Float
+                        scaleY = it.animatedValue as Float
+                    }
+                }
+               // start()
+            }
+
+            val zeroScaleAnimator = ValueAnimator.ofFloat(
+                zeroScaleValues[i][0],
+                zeroScaleValues[i][1]
+            ).apply {
+                duration =1000L
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.REVERSE
+                interpolator = LinearInterpolator()
+
+                addUpdateListener {
+                    icon.apply {
+                        scaleX = it.animatedValue as Float
+                        scaleY = it.animatedValue as Float
+                    }
+                }
+                // start()
+            }
+
+            var animatorSet: AnimatorSet = AnimatorSet()
+
+            animatorSet.play(scaleAnimator).after(zeroScaleAnimator)
+
+            //  animators.add(firstscaleAnimator)
+            animators.add(animatorSet)
+        }
+
+        val set = ConstraintSet().apply { this.clone(constraintLayout) }
+
+        set.connect(center.id, ConstraintSet.TOP, id, ConstraintSet.TOP)
+        set.connect(center.id, ConstraintSet.BOTTOM, id, ConstraintSet.BOTTOM)
+        set.connect(center.id, ConstraintSet.START, id, ConstraintSet.START)
+        set.connect(center.id, ConstraintSet.END, id, ConstraintSet.END)
+
+        val sliceAngle = 360 / iconsRes.size
+
+        for (i in 0 until iconsRes.size) {
+            set.constrainCircle(iconsRes[i], circleCenterResId, 240, (sliceAngle * i).toFloat())
+        }
+
+        set.applyTo(constraintLayout)
+
+        addView(constraintLayout)
+
+        animators.forEach { it.start() }
+    }
+
+    private fun getScaleValues(i: Int): List<Float> = when (i % 5) {
+        0 -> listOf(0.2F, 0.5F)
+        1 -> listOf(0.5F, 0.7F)
+        2 -> listOf(0.7F, 1.2F)
+        3 -> listOf(0.5F, 0.7F)
+        else -> listOf(0.2F, 0.5F)
+    }
+
+    private fun getScaleValues_V2(i: Int): List<Float> = when (i % 5) {
+        0 -> listOf(0.5F, 0F)
+        1 -> listOf(0.7F, 0f)
+        2 -> listOf(1.2F, 0F)
+        3 -> listOf(0.7f, 0F)
+        else -> listOf(0.5F, 0F)
+    }
+
+    data class Params(
+        val margin: Int,
+        val radius: Int,
+        val iconCount: Int,
+        val animationDuration: Long,
+        val pulseFrom: Float,
+        val pulseTo: Float,
+        @DrawableRes val drawableRes: Int
+    )
+
+    companion object {
+        fun convertDpToPixel(dp: Float, context: Context): Int {
+            return (dp * (context.resources.displayMetrics.densityDpi.toFloat() / DisplayMetrics.DENSITY_DEFAULT)).toInt()
+        }
+
+        fun createConstraintLayout(context: Context): ConstraintLayout {
+            val constraintLayout = ConstraintLayout(context)
+
+            val layoutParams = LayoutParams(
+                LayoutParams.WRAP_CONTENT,
+                LayoutParams.WRAP_CONTENT
+            )
+
+            //layoutParams.gravity = Gravity.CENTER
+
+            constraintLayout.layoutParams = layoutParams
+            constraintLayout.clipChildren = false
+            constraintLayout.clipToPadding = false
+
+            return constraintLayout
+        }
+
+        fun handleStartingPulseAnimation(
+            numberOfDots: Int,
+            animationDuration: Long,
+            func: (Int) -> Unit
+        ): ValueAnimator {
+            val valueAnimator = ValueAnimator.ofInt(0, numberOfDots)
+            valueAnimator.addUpdateListener {
+                if (it.animatedValue != numberOfDots) {
+                    func(it.animatedValue as Int)
+                }
+            }
+            valueAnimator.repeatMode = ValueAnimator.RESTART
+            valueAnimator.repeatCount = ValueAnimator.INFINITE
+            valueAnimator.duration = animationDuration / 10
+            valueAnimator.interpolator = LinearInterpolator()
+
+            return valueAnimator
+        }
+
+        fun createRotateAnimator(view: View, duration: Long): Animator {
+            val animator = ObjectAnimator.ofFloat(view, "rotation", 0f, 360f)
+            animator.duration = duration
+            animator.repeatCount = Animation.INFINITE
+            animator.repeatMode = ValueAnimator.RESTART
+            animator.interpolator = AccelerateDecelerateInterpolator()
+           // animator.start()
+            return animator
+        }
+    }
+}
